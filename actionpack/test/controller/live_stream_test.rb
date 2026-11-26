@@ -250,6 +250,13 @@ module ActionController
         render plain: stack.inspect
       end
 
+      def query_cache_state
+        render plain: [
+          ActiveSupport::IsolatedExecutionState[:active_record_query_cache_enabled],
+          ActiveSupport::IsolatedExecutionState[:active_record_used_pools]
+        ].inspect
+      end
+
       def with_stale
         render plain: "stale" if stale?(etag: "123", template: false)
       end
@@ -608,6 +615,19 @@ module ActionController
     ensure
       @controller.class.live_streaming_excluded_keys = original
       ActiveSupport::IsolatedExecutionState.delete(:active_record_connected_to_stack)
+    end
+
+    def test_query_cache_state_not_inherited
+      ActiveSupport::IsolatedExecutionState[:active_record_query_cache_enabled] = true
+      ActiveSupport::IsolatedExecutionState[:active_record_used_pools] = Object.new
+
+      get :query_cache_state
+
+      assert_equal "[nil, nil]", response.body
+      assert_stream_closed
+    ensure
+      ActiveSupport::IsolatedExecutionState.delete(:active_record_query_cache_enabled)
+      ActiveSupport::IsolatedExecutionState.delete(:active_record_used_pools)
     end
 
     def test_live_streaming_doesnt_exclude_by_default

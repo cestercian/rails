@@ -1,3 +1,11 @@
+*   Don't share the Active Record query cache state with the `ActionController::Live` streaming thread.
+
+    Since the query cache state moved to `IsolatedExecutionState`, the streaming
+    thread inherited the request's query cache, so repeated reads inside a stream
+    returned stale results.
+
+    *Cestercian*
+
 *   Raise `ActionController::BadRequest` for every `Rack::BadRequest` error raised while parsing request parameters.
 
     `ActionDispatch::Request#POST` only converted three explicit Rack errors into

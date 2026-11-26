@@ -88,9 +88,14 @@ module ActionController
   # - `:active_record_connected_to_stack` - Database connection routing and roles
   # - `:active_record_prohibit_shard_swapping` - Shard swapping restrictions
   #
-  # By default, no keys are excluded to maintain backward compatibility.
+  # By default, no keys are excluded to maintain backward compatibility, except for
+  # the Active Record query cache state, which is never shared with the streaming
+  # thread. Otherwise the streaming thread would read from the request's query cache
+  # for as long as the stream stays open.
   module Live
     extend ActiveSupport::Concern
+
+    ALWAYS_EXCLUDED_KEYS = [:active_record_used_pools, :active_record_query_cache_enabled].freeze # :nodoc:
 
     @live_streaming_excluded_keys = []
     singleton_class.attr_accessor :live_streaming_excluded_keys
@@ -333,7 +338,7 @@ module ActionController
           # from the main thread to the child thread. :'(
           locals.each { |k, v| t2[k] = v }
 
-          ActiveSupport::IsolatedExecutionState.share_with(context, except: self.class.live_streaming_excluded_keys) do
+          ActiveSupport::IsolatedExecutionState.share_with(context, except: ALWAYS_EXCLUDED_KEYS | Array(self.class.live_streaming_excluded_keys)) do
             super(name)
           rescue => e
             if @_response.committed?
